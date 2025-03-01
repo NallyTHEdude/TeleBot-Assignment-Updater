@@ -2,8 +2,9 @@ const { Telegraf } = require('telegraf');
 const fs = require('fs');
 const path = require('path');
 const { scrapeForUser, formatAssignments } = require('./scraper');
+const { BOT_TOKEN }= require('./api-key');
 
-const bot = new Telegraf('YOUR_BOT_TOKEN');
+const bot = new Telegraf(BOT_TOKEN);
 
 // Load initial credentials from user-details.json
 const credentialsPath = path.join(__dirname, 'user-details.json');
