@@ -2,31 +2,21 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
-// Global browser instance
-let globalBrowser = null;
-
-async function initializeBrowser() {
-  if (!globalBrowser) {
-    globalBrowser = await puppeteer.launch({ headless: true });
-    console.log('Browser initialized');
-  }
-  return globalBrowser;
-}
-
-async function setupPage(browser) {
+async function setupBrowser() {
+  const browser = await puppeteer.launch({ headless: true });
   const page = await browser.newPage();
-  const outputDir = path.join(__dirname, 'page');
+  const outputDir = path.join(__dirname, 'errors');
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir);
   }
-  return { page, outputDir };
+  return { browser, page, outputDir };
 }
 
 async function loginToDashboard(page, username, password) {
   const URL_LOGIN = 'https://lms.klh.edu.in/login/index.php';
   const URL_DASHBOARD = 'https://lms.klh.edu.in/my/';
 
-  await page.goto(URL_LOGIN, { waitUntil: 'networkidle2', timeout: 30000 });
+  await page.goto(URL_LOGIN, { waitUntil: 'networkidle2' });
   await page.type('input[name="username"]', username);
   await page.type('input[name="password"]', password);
   await page.click('#loginbtn');
@@ -48,8 +38,12 @@ async function scrapeAssignments(page) {
       if (child.matches('div[data-region="event-list-content-date"]')) {
         if (child.querySelector('h5')) {
           let [, day, month, year] = child.querySelector('h5').textContent.trim().split(" ");
-          let adjustedDay = parseInt(day) ; 
-          day = adjustedDay < 10 ? `0${adjustedDay}` : `${adjustedDay}`;
+          let adjustedDay = parseInt(day);
+          if(adjustedDay < 10){
+            day = `0${adjustedDay}`;
+          }else{
+            day=`${adjustedDay}`;
+          }
           currentDueDate = `${year}|${month}|${day}`;
         } else {
           currentDueDate = 'Unknown';
@@ -73,57 +67,21 @@ async function scrapeAssignments(page) {
 }
 
 async function scrapeForUser(username, password) {
-  const browser = await initializeBrowser();
-  const { page, outputDir } = await setupPage(browser);
+  const { browser, page, outputDir } = await setupBrowser();
   try {
     await loginToDashboard(page, username, password);
     const assignments = await scrapeAssignments(page);
     return assignments;
   } catch (error) {
-    console.error(`Scraping error for ${username}:`, error);
+    console.error('Scraping error:', error);
     if (page) {
-      fs.writeFileSync(path.join(outputDir, `error-${username}.html`), await page.content(), 'utf-8');
+      const errorHtml = await page.content();
+      fs.writeFileSync(path.join(outputDir, 'error.html'), errorHtml, 'utf-8');
     }
     return [];
   } finally {
-    await page.close(); // Close page, not browser
+    await browser.close();
   }
-}
-
-// Batch scraping for multiple users
-async function scrapeForUsers(users, maxConcurrency = 5) {
-  const browser = await initializeBrowser();
-  const results = [];
-
-  // Process users in batches
-  async function processBatch(batch) {
-    const promises = batch.map(async ({ username, password }) => {
-      const { page } = await setupPage(browser);
-      try {
-        await loginToDashboard(page, username, password);
-        const assignments = await scrapeAssignments(page);
-        return { username, assignments };
-      } catch (error) {
-        console.error(`Scraping error for ${username}:`, error);
-        return { username, assignments: [] };
-      } finally {
-        await page.close();
-      }
-    });
-    return Promise.all(promises);
-  }
-
-  // Split users into batches
-  for (let i = 0; i < users.length; i += maxConcurrency) {
-    const batch = users.slice(i, i + maxConcurrency);
-    const batchResults = await processBatch(batch);
-    results.push(...batchResults);
-  }
-
-  return results.reduce((acc, { username, assignments }) => {
-    acc[username] = formatAssignments(assignments);
-    return acc;
-  }, {});
 }
 
 function formatAssignments(assignments) {
@@ -138,13 +96,4 @@ function formatAssignments(assignments) {
   return assignmentsByDate;
 }
 
-// Cleanup function (call when shutting down)
-async function cleanupBrowser() {
-  if (globalBrowser) {
-    await globalBrowser.close();
-    globalBrowser = null;
-    console.log('Browser closed');
-  }
-}
-
-module.exports = { scrapeForUser, scrapeForUsers, formatAssignments, cleanupBrowser };
+module.exports = { scrapeForUser, formatAssignments };
