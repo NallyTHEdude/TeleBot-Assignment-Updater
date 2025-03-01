@@ -38,7 +38,7 @@ async function scrapeAssignments(page) {
       if (child.matches('div[data-region="event-list-content-date"]')) {
         if (child.querySelector('h5')) {
           let [, day, month, year] = child.querySelector('h5').textContent.trim().split(" ");
-          let adjustedDay = parseInt(day);
+          let adjustedDay = parseInt(day) - 1;
           if(adjustedDay < 10){
             day = `0${adjustedDay}`;
           }else{

@@ -71,26 +71,40 @@ async function sendAssignments(chatId, assignments) {
   const year = today.getFullYear();
   const todayDate = `${year}|${month}|${day}`;
 
-  let message = '';
+  // Build message as an array of lines for clarity
+  const messageLines = [];
+
   for (const [dueDate, assignmentsList] of Object.entries(assignments)) {
-    message += `\nAssignments due on ${dueDate.replace(/, 2025$/, '')}:\n`;
+    // Bold the due date line without tab spacing
+    messageLines.push(`*↣ Assignments due on ${dueDate.replace(/, 2025$/, '')}:*`);
+
     assignmentsList.forEach((assignment, index) => {
-      let assignmentBlock = '';
+      // Build assignment block as an array of lines
+      const assignmentBlock = [];
       let assignmentName = assignment.name;
+
       if (dueDate === todayDate) {
-        assignmentName = `*${assignmentName.toUpperCase()}*`; // Bold for today
-        assignmentBlock += '⚠️⚠️TODAY⚠️⚠️\n'; // Before assignment
+        assignmentBlock.push('⚠️'); // Before assignment
+        assignmentBlock.push(`*${`Course ${index + 1}: ${assignment.course}`}*`);
+        assignmentBlock.push(`*${`Assignment${index + 1}: ${assignmentName}`}*`);
+        assignmentBlock.push(`*${`Link ${index + 1}: ${assignment.href}`}*`);
+        assignmentBlock.push('⚠️'); // After assignment
+      }else{
+        assignmentBlock.push(`Course ${index + 1}: ${assignment.course}`);
+        assignmentBlock.push(`Assignment${index + 1}: ${assignmentName}`);
+        assignmentBlock.push(`Link ${index + 1}: ${assignment.href}`);
       }
-      assignmentBlock += `Course ${index + 1}: ${assignment.course}\n`;
-      assignmentBlock += `Assignment${index + 1}: ${assignmentName}\n`;
-      assignmentBlock += `Link ${index + 1}: ${assignment.href}\n`;
-      if (dueDate === todayDate) {
-        // assignmentBlock = `*${assignmentBlock}*`;
-        assignmentBlock += '⚠️⚠️TODAY⚠️⚠️\n'; // After assignment
-      }
-      message += assignmentBlock + '\n';
+
+      // Add tab spacing to each line of the assignment block
+      const tabbedBlock = assignmentBlock.map(line => `        ${line}`);
+      messageLines.push(...tabbedBlock, ''); // Add block and a blank line
     });
+    messageLines.push("--------------------------------------------------------------------------------");
   }
+
+  // Join lines into final message
+  const message = messageLines.join('\n');
+  message
   await bot.telegram.sendMessage(chatId, message || 'No assignments found', { parse_mode: 'Markdown' });
 }
 
