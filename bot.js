@@ -6,7 +6,7 @@ const { BOT_TOKEN }= require('./api-key');
 
 const bot = new Telegraf(BOT_TOKEN);
 
-// Load initial credentials from user-details.json
+// loading credentials from user-details.json
 const credentialsPath = path.join(__dirname, 'user-details.json');
 let userData;
 
@@ -19,10 +19,12 @@ try {
   userData = { username: '', password: '', chatId: null };
 }
 
+// start command
 bot.start((ctx) => {
   ctx.reply('Welcome! Please provide your LMS credentials using /login <username> <password>');
 });
 
+// login command
 bot.command('login', (ctx) => {
   const [_, username, password] = ctx.message.text.split(' ');
   if (!username || !password) {
@@ -33,13 +35,13 @@ bot.command('login', (ctx) => {
   userData.password = password;
   userData.chatId = ctx.chat.id;
 
-  // Optionally save back to user-details.json (uncomment if desired)
+  //save back to user-details.json
   fs.writeFileSync(credentialsPath, JSON.stringify(userData, null, 2), 'utf-8');
 
   ctx.reply('Credentials saved! I’ll send you assignment updates daily at 8:30 AM, 1:30 PM, and 8:00 PM. Use /assignments to fetch them now.');
 });
 
-// New /assignments command
+// /assignments command 
 bot.command('assignments', async (ctx) => {
   if (!userData.username || !userData.password || !userData.chatId) {
     return ctx.reply('Please use /login <username> <password> first to set your credentials.');
@@ -71,13 +73,14 @@ async function sendAssignments(chatId, assignments) {
   const year = today.getFullYear();
   const todayDate = `${year}|${month}|${day}`;
 
-  // Check if there are no assignments
+  //if (noAssignment): print(no assignment)
   if (Object.keys(assignments).length === 0) {
     await bot.telegram.sendMessage(chatId, 'Congrats🎊🎊🎉 , you dont have any assignments left, lets gooooo!!!!!', { parse_mode: 'Markdown' });
     return;
   }
 
-  // Build message as an array of lines for clarity
+  // storing lines of messgae in parent-child relation for better readability
+  // uses a lil more memory , but is code readable (for personal use so no problem)
   const messageLines = [];
 
   for (const [dueDate, assignmentsList] of Object.entries(assignments)) {
