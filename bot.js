@@ -71,41 +71,42 @@ async function sendAssignments(chatId, assignments) {
   const year = today.getFullYear();
   const todayDate = `${year}|${month}|${day}`;
 
+  // Check if there are no assignments
+  if (Object.keys(assignments).length === 0) {
+    await bot.telegram.sendMessage(chatId, 'Congrats🎊🎊🎉 , you dont have any assignments left, lets gooooo!!!!!', { parse_mode: 'Markdown' });
+    return;
+  }
+
   // Build message as an array of lines for clarity
   const messageLines = [];
 
   for (const [dueDate, assignmentsList] of Object.entries(assignments)) {
-    // Bold the due date line without tab spacing
     messageLines.push(`*↣ Assignments due on ${dueDate.replace(/, 2025$/, '')}:*`);
 
     assignmentsList.forEach((assignment, index) => {
-      // Build assignment block as an array of lines
       const assignmentBlock = [];
       let assignmentName = assignment.name;
 
       if (dueDate === todayDate) {
-        assignmentBlock.push('⚠️'); // Before assignment
+        assignmentBlock.push('⚠️');
         assignmentBlock.push(`*${`Course ${index + 1}: ${assignment.course}`}*`);
         assignmentBlock.push(`*${`Assignment${index + 1}: ${assignmentName}`}*`);
         assignmentBlock.push(`*${`Link ${index + 1}: ${assignment.href}`}*`);
-        assignmentBlock.push('⚠️'); // After assignment
-      }else{
+        assignmentBlock.push('⚠️');
+      } else {
         assignmentBlock.push(`Course ${index + 1}: ${assignment.course}`);
         assignmentBlock.push(`Assignment${index + 1}: ${assignmentName}`);
         assignmentBlock.push(`Link ${index + 1}: ${assignment.href}`);
       }
 
-      // Add tab spacing to each line of the assignment block
       const tabbedBlock = assignmentBlock.map(line => `        ${line}`);
-      messageLines.push(...tabbedBlock, ''); // Add block and a blank line
+      messageLines.push(...tabbedBlock, '');
     });
     messageLines.push("--------------------------------------------------------------------------------");
   }
 
-  // Join lines into final message
   const message = messageLines.join('\n');
-  message
-  await bot.telegram.sendMessage(chatId, message || 'No assignments found', { parse_mode: 'Markdown' });
+  await bot.telegram.sendMessage(chatId, message, { parse_mode: 'Markdown' });
 }
 
 module.exports = { bot, sendAssignments, getUserData: () => userData };

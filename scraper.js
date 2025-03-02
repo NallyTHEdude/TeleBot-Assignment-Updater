@@ -24,11 +24,14 @@ async function loginToDashboard(page, username, password) {
 }
 
 async function scrapeAssignments(page) {
-  await page.waitForSelector('.timeline-event-list-item', { timeout: 30000 });
+  await page.waitForSelector('.timeline-event-list-item', { timeout: 10000 });
 
   return await page.evaluate(() => {
     const wrapper = document.querySelector('div[data-region="event-list-wrapper"]');
     if (!wrapper) return [];
+
+    const hasAssignments = wrapper.querySelector('.event-name') !== null;
+    if (!hasAssignments) return []; // Empty array signals no assignments
 
     const assignmentsList = [];
     let currentDueDate = 'Unknown';
@@ -38,7 +41,7 @@ async function scrapeAssignments(page) {
       if (child.matches('div[data-region="event-list-content-date"]')) {
         if (child.querySelector('h5')) {
           let [, day, month, year] = child.querySelector('h5').textContent.trim().split(" ");
-          let adjustedDay = parseInt(day) - 1;
+          let adjustedDay = parseInt(day);
           if(adjustedDay < 10){
             day = `0${adjustedDay}`;
           }else{
