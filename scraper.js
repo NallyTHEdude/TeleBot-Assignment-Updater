@@ -20,11 +20,11 @@ async function loginToDashboard(page, username, password) {
   await page.type('input[name="username"]', username);
   await page.type('input[name="password"]', password);
   await page.click('#loginbtn');
-  await page.waitForFunction(`window.location.href === "${URL_DASHBOARD}"`, { timeout: 30000 });
+  await page.waitForFunction(`window.location.href === "${URL_DASHBOARD}"`, { timeout: 2000 });
 }
 
 async function scrapeAssignments(page) {
-  await page.waitForSelector('.timeline-event-list-item', { timeout: 10000 });
+  await page.waitForSelector('.timeline-event-list-item', { timeout: 1000 });
 
   return await page.evaluate(() => {
     const wrapper = document.querySelector('div[data-region="event-list-wrapper"]');
