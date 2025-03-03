@@ -73,6 +73,9 @@ async function sendAssignments(chatId, assignments) {
   const year = today.getFullYear();
   const todayDate = `${year}|${month}|${day}`;
 
+    function escapeMarkdown(text) {
+    return text.replace(/([_*[\]()~`>#+=|-])/g, '\\$1');
+  }
   //if (noAssignment): print(no assignment)
   if (Object.keys(assignments).length === 0) {
     await bot.telegram.sendMessage(chatId, 'Congrats🎊🎊🎉 , you dont have any assignments left, lets gooooo!!!!!', { parse_mode: 'Markdown' });
@@ -88,7 +91,7 @@ async function sendAssignments(chatId, assignments) {
 
     assignmentsList.forEach((assignment, index) => {
       const assignmentBlock = [];
-      let assignmentName = assignment.name;
+      let assignmentName = escapeMarkdown(assignment.name); // Escape special chars
 
       if (dueDate === todayDate) {
         assignmentBlock.push('⚠️');
