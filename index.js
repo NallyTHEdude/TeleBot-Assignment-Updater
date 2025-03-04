@@ -23,7 +23,7 @@ app.get('/', (req, res) => {
 // Start the Express server
 app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
-  const WEBHOOK_URL = `${process.env.RENDER_EXTERNAL_URL}${WEBHOOK_PATH}`;
+const WEBHOOK_URL = `${process.env.RENDER_EXTERNAL_URL || `https://your-app-name.onrender.com`}${WEBHOOK_PATH}`;
   try {
     await bot.telegram.setWebhook(WEBHOOK_URL);
     console.log(`Webhook set to: ${WEBHOOK_URL}`);
