@@ -120,4 +120,4 @@ module.exports = { bot, sendAssignments, getUserData: () => userData };
 
 // Launch the bot
 bot.launch();
-console.log('Bot is running...');
+console.log('Bot is running...from BOT.js');
