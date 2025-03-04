@@ -20,11 +20,11 @@ async function loginToDashboard(page, username, password) {
   await page.type('input[name="username"]', username);
   await page.type('input[name="password"]', password);
   await page.click('#loginbtn');
-  await page.waitForFunction(`window.location.href === "${URL_DASHBOARD}"`, { timeout: 2000 });
+  await page.waitForFunction(`window.location.href === "${URL_DASHBOARD}"`, { timeout: 60000 });
 }
 
 async function scrapeAssignments(page) {
-  await page.waitForSelector('.timeline-event-list-item', { timeout: 1000 });
+  await page.waitForSelector('.timeline-event-list-item', { timeout: 60000 });
 
   return await page.evaluate(() => {
     const wrapper = document.querySelector('div[data-region="event-list-wrapper"]');
@@ -41,7 +41,7 @@ async function scrapeAssignments(page) {
       if (child.matches('div[data-region="event-list-content-date"]')) {
         if (child.querySelector('h5')) {
           let [, day, month, year] = child.querySelector('h5').textContent.trim().split(" ");
-          let adjustedDay = parseInt(day);
+          let adjustedDay = parseInt(day) ;
           if(adjustedDay < 10){
             day = `0${adjustedDay}`;
           }else{
@@ -69,19 +69,15 @@ async function scrapeAssignments(page) {
   });
 }
 
-async function scrapeForUser(username, password) {
+async function scrapeForUser(username, password, retries = 3) {
   const { browser, page, outputDir } = await setupBrowser();
   try {
     await loginToDashboard(page, username, password);
     const assignments = await scrapeAssignments(page);
     return assignments;
   } catch (error) {
-    console.error('Scraping error:', error);
-    if (page) {
-      const errorHtml = await page.content();
-      fs.writeFileSync(path.join(outputDir, 'error.html'), errorHtml, 'utf-8');
-    }
-    return [];
+    console.error(`Attempt ${i+1} failed: ${error}`);
+    if (i === retries-1) throw error; // Last attempt
   } finally {
     await browser.close();
   }
