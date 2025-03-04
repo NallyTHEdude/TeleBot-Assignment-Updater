@@ -41,7 +41,12 @@ bot.command('login', (ctx) => {
   userData.chatId = ctx.chat.id;
 
   // Save back to user-details.json
-  fs.writeFileSync(credentialsPath, JSON.stringify(userData, null, 2), 'utf-8');
+  try {
+    fs.writeFileSync(credentialsPath, JSON.stringify(userData, null, 2), 'utf-8');
+    console.log('Credentials saved to user-details.json');
+  } catch (error) {
+    console.error('Error saving credentials:', error.message);
+  }
 
   ctx.reply('Credentials saved! I’ll send you assignment updates daily at 8:30 AM, 1:30 PM, and 8:00 PM. Use /assignments to fetch them now.');
 });
@@ -56,13 +61,17 @@ bot.command('assignments', async (ctx) => {
     return ctx.reply('Sorry, your chat ID doesn’t match the registered user. Please /login again.');
   }
 
-  ctx.reply('Fetching your assignments, please wait...');
+  await ctx.reply('Fetching your assignments, please wait...');
   try {
     const assignments = await scrapeForUser(userData.username, userData.password);
     const groupedAssignments = formatAssignments(assignments);
     await sendAssignments(ctx.chat.id, groupedAssignments);
   } catch (error) {
-    ctx.reply('Error fetching assignments. Please try again later.');
+    if (error.message.includes('Timeout') || error.message.includes('net::ERR_CONNECTION')) {
+      await ctx.reply('Network is slow, try manually:\nLMS link: https://lms.klh.edu.in/login/index.php');
+    } else {
+      await ctx.reply('Error fetching assignments. Please try again later.');
+    }
     console.error('Error in /assignments:', error);
   }
 });
@@ -117,5 +126,3 @@ async function sendAssignments(chatId, assignments) {
 }
 
 module.exports = { bot, sendAssignments, getUserData: () => userData };
-
-
