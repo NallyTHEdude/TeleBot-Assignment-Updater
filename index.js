@@ -1,53 +1,118 @@
-const express = require('express');
-const cron = require('node-cron');
-const { bot, sendAssignments, getUserData } = require('./bot');
+const { Telegraf } = require('telegraf');
+require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 const { scrapeForUser, formatAssignments } = require('./scraper');
+let BOT_TOKEN = process.env.BOT_TOKEN;
+const bot = new Telegraf(BOT_TOKEN);
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+// loading credentials from user-details.json
+const credentialsPath = path.join(__dirname, 'user-details.json');
+let userData;
 
-// Middleware to parse JSON bodies (required for Telegram webhook)
-app.use(express.json());
+try {
+  const credentialsData = fs.readFileSync(credentialsPath, 'utf-8');
+  userData = JSON.parse(credentialsData);
+  console.log('Loaded initial credentials from user-details.json');
+} catch (error) {
+  console.error('Error reading user-details.json:', error.message);
+  userData = { username: '', password: '', chatId: null };
+}
 
-// Set up webhook route for Telegram
-const WEBHOOK_PATH = `/bot${process.env.BOT_TOKEN}`;
-app.post(WEBHOOK_PATH, (req, res) => {
-  bot.handleUpdate(req.body, res);
+// start command
+bot.start((ctx) => {
+  ctx.reply('Welcome! Please provide your LMS credentials using /login <username> <password>');
 });
 
-// Health check endpoint
-app.get('/', (req, res) => {
-  res.send('Telegram bot is running...');
+// login command
+bot.command('login', (ctx) => {
+  const [_, username, password] = ctx.message.text.split(' ');
+  if (!username || !password) {
+    return ctx.reply('Usage: /login <username> <password>');
+  }
+
+  userData.username = username;
+  userData.password = password;
+  userDatachatId = ctx.chat.id;
+
+  //save back to user-details.json
+  fs.writeFileSync(credentialsPath, JSON.stringify(userData, null, 2), 'utf-8');
+
+  ctx.reply('Credentials saved! I’ll send you assignment updates daily at 8:30 AM, 1:30 PM, and 8:00 PM.Use /assignments to fetch assignments whenever you want');
 });
 
-// Start the Express server
-app.listen(PORT, async () => {
-  console.log(`Server running on port ${PORT}`);
-const WEBHOOK_URL = `${process.env.RENDER_EXTERNAL_URL || `https://your-app-name.onrender.com`}${WEBHOOK_PATH}`;
+// /assignments command 
+bot.command('assignments', async (ctx) => {
+  if (!userData.username || !userData.password || !userData.chatId) {
+    return ctx.reply('Please use /login <username> <password> first to set your credentials.');
+  }
+
+  if (userData.chatId !== ctx.chat.id) {
+    return ctx.reply('Sorry, your chat ID doesn’t match the registered user. Please /login again.');
+  }
+
+  ctx.reply('Fetching your assignments, please wait...');
   try {
-    await bot.telegram.setWebhook(WEBHOOK_URL);
-    console.log(`Webhook set to: ${WEBHOOK_URL}`);
-  } catch (err) {
-    console.error('Webhook setup error:', err);
+    const assignments = await scrapeForUser(userData.username, userData.password);
+    const groupedAssignments = formatAssignments(assignments);
+    await sendAssignments(ctx.chat.id, groupedAssignments);
+  } catch (error) {
+    ctx.reply('Error fetching assignments. Please try again later.');
+    console.error('Error in /assignments:', error);
   }
 });
 
-// Schedule updates at 8:30 AM, 1:30 PM, and 8:00 PM IST
-const times = ['30 8 * * *', '30 13 * * *', '0 20 * * *'];
-times.forEach(time => {
-  cron.schedule(time, async () => {
-    console.log(`Running assignment check at ${new Date().toLocaleString()}`);
-    const user = getUserData();
-    if (user.chatId && user.username && user.password) {
-      try {
-        const assignments = await scrapeForUser(user.username, user.password);
-        const groupedAssignments = formatAssignments(assignments);
-        await sendAssignments(user.chatId, groupedAssignments);
-      } catch (error) {
-        console.error('Scheduled scrape error:', error);
+async function sendAssignments(chatId, assignments) {
+  const today = new Date();
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const day = String(today.getDate()).padStart(2, '0');
+  const month = monthNames[today.getMonth()];
+  const year = today.getFullYear();
+  const todayDate = `${year}|${month}|${day}`;
+
+    function escapeMarkdown(text) {
+    return text.replace(/([_*[\]()~`>#+=|-])/g, '\\$1');
+  }
+  //if (noAssignment): print(no assignment)
+  if (Object.keys(assignments).length === 0) {
+    await bot.telegram.sendMessage(chatId, 'Congrats🎊🎊🎉 , you dont have any assignments left, lets gooooo!!!!!', { parse_mode: 'Markdown' });
+    return;
+  }
+
+  // storing lines of messgae in parent-child relation for better readability
+  // uses a lil more memory , but is code readable (for personal use so no problem)
+  const messageLines = [];
+
+  for (const [dueDate, assignmentsList] of Object.entries(assignments)) { 
+    messageLines.push(`*↣ Assignments due on ${dueDate.replace(/, 2025$/, '')}:*`);
+
+    assignmentsList.forEach((assignment, index) => {
+      const assignmentBlock = [];
+      let assignmentName = escapeMarkdown(assignment.name); // Escape special chars
+
+      if (dueDate === todayDate) {
+        assignmentBlock.push('⚠️');
+        assignmentBlock.push(`*${`Course ${index + 1}: ${assignment.course}`}*`);
+        assignmentBlock.push(`*${`Assignment${index + 1}: ${assignmentName}`}*`);
+        assignmentBlock.push(`*${`Link ${index + 1}: ${assignment.href}`}*`);
+        assignmentBlock.push('⚠️');
+      } else {
+        assignmentBlock.push(`Course ${index + 1}: ${assignment.course}`);
+        assignmentBlock.push(`Assignment${index + 1}: ${assignmentName}`);
+        assignmentBlock.push(`Link ${index + 1}: ${assignment.href}`);
       }
-    } else {
-      console.log('No user data available for scheduling');
-    }
-  }, { timezone: 'Asia/Kolkata' });
-});
+
+      const tabbedBlock = assignmentBlock.map(line => `        ${line}`);
+      messageLines.push(...tabbedBlock, '');
+    });
+    messageLines.push("--------------------------------------------------------------------------------");
+  }
+
+  const message = messageLines.join('\n');
+  await bot.telegram.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+}
+
+module.exports = { bot, sendAssignments, getUserData: () => userData };
