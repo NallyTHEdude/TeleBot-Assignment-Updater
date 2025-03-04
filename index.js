@@ -22,4 +22,4 @@ times.forEach(time => {
 });
 
 bot.launch();
-console.log('Bot is running...');
+console.log('Bot is running...From index.js');
