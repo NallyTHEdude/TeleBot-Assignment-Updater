@@ -2,11 +2,16 @@ const { Telegraf } = require('telegraf');
 const fs = require('fs');
 const path = require('path');
 const { scrapeForUser, formatAssignments } = require('./scraper');
-const { BOT_TOKEN }= require('./api-key');
+
+// Use environment variable for BOT_TOKEN
+const BOT_TOKEN = process.env.BOT_TOKEN;
+if (!BOT_TOKEN) {
+  throw new Error('BOT_TOKEN environment variable is not set');
+}
 
 const bot = new Telegraf(BOT_TOKEN);
 
-// loading credentials from user-details.json
+// Loading credentials from user-details.json
 const credentialsPath = path.join(__dirname, 'user-details.json');
 let userData;
 
@@ -19,12 +24,12 @@ try {
   userData = { username: '', password: '', chatId: null };
 }
 
-// start command
+// Start command
 bot.start((ctx) => {
   ctx.reply('Welcome! Please provide your LMS credentials using /login <username> <password>');
 });
 
-// login command
+// Login command
 bot.command('login', (ctx) => {
   const [_, username, password] = ctx.message.text.split(' ');
   if (!username || !password) {
@@ -35,7 +40,7 @@ bot.command('login', (ctx) => {
   userData.password = password;
   userData.chatId = ctx.chat.id;
 
-  //save back to user-details.json
+  // Save back to user-details.json
   fs.writeFileSync(credentialsPath, JSON.stringify(userData, null, 2), 'utf-8');
 
   ctx.reply('Credentials saved! I’ll send you assignment updates daily at 8:30 AM, 1:30 PM, and 8:00 PM. Use /assignments to fetch them now.');
@@ -73,25 +78,21 @@ async function sendAssignments(chatId, assignments) {
   const year = today.getFullYear();
   const todayDate = `${year}|${month}|${day}`;
 
-    function escapeMarkdown(text) {
-    return text.replace(/([_*[\]()~`>#+=|-])/g, '\\$1');
+  function escapeMarkdown(text) {
+    return text.replace(/([_*[\]()~`>#+=|-])/g, '\\$1').replace(/&/g, '\\&');
   }
-  //if (noAssignment): print(no assignment)
+
   if (Object.keys(assignments).length === 0) {
-    await bot.telegram.sendMessage(chatId, 'Congrats🎊🎊🎉 , you dont have any assignments left, lets gooooo!!!!!', { parse_mode: 'Markdown' });
+    await bot.telegram.sendMessage(chatId, 'Congrats🎊🎊🎉 , you don\'t have any assignments left, let\'s gooooo!!!!!', { parse_mode: 'Markdown' });
     return;
   }
 
-  // storing lines of messgae in parent-child relation for better readability
-  // uses a lil more memory , but is code readable (for personal use so no problem)
   const messageLines = [];
-
   for (const [dueDate, assignmentsList] of Object.entries(assignments)) {
-    messageLines.push(`*↣ Assignments due on ${dueDate.replace(/, 2025$/, '')}:*`);
-
+    messageLines.push(`*↣ Assignments due on ${escapeMarkdown(dueDate.replace(/, 2025$/, ''))}:*`);
     assignmentsList.forEach((assignment, index) => {
       const assignmentBlock = [];
-      let assignmentName = escapeMarkdown(assignment.name); // Escape special chars
+      let assignmentName = escapeMarkdown(assignment.name);
 
       if (dueDate === todayDate) {
         assignmentBlock.push('⚠️');
@@ -116,3 +117,7 @@ async function sendAssignments(chatId, assignments) {
 }
 
 module.exports = { bot, sendAssignments, getUserData: () => userData };
+
+// Launch the bot
+bot.launch();
+console.log('Bot is running...');
