@@ -2,6 +2,7 @@ const { Telegraf } = require('telegraf');
 const fs = require('fs');
 const path = require('path');
 const { scrapeForUser, formatAssignments } = require('./scraper');
+require('dotenv').config();
 
 // Use environment variable for BOT_TOKEN
 const BOT_TOKEN = process.env.BOT_TOKEN;
@@ -9,6 +10,7 @@ if (!BOT_TOKEN) {
   throw new Error('BOT_TOKEN environment variable is not set');
 }
 
+console.log('bot token is: ', BOT_TOKEN)
 const bot = new Telegraf(BOT_TOKEN);
 
 // Loading credentials from user-details.json
