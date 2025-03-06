@@ -72,7 +72,7 @@ bot.command('assignments', async (ctx) => {
     if (error.message.includes('Timeout') || error.message.includes('net::ERR_CONNECTION')) {
       await ctx.reply('Network is slow, try manually:\nLMS link: https://lms.klh.edu.in/login/index.php');
     } else {
-      await ctx.reply('Error fetching assignments. Please try again later.');
+      await ctx.reply(`Error fetching assignments. Please try again later.${error}`);
     }
     console.error('Error in /assignments:', error);
   }
@@ -88,9 +88,9 @@ async function sendAssignments(chatId, assignments) {
   const month = monthNames[today.getMonth()];
   const year = today.getFullYear();
   const todayDate = `${year}|${month}|${day}`;
-
+  
   function escapeMarkdown(text) {
-    return text.replace(/([_*[\]()~`>#+=|-])/g, '\\$1').replace(/&/g, '\\&');
+    return text.replace(/([*_`])/g, '\\$1'); // Only escape *, _, `
   }
 
   if (Object.keys(assignments).length === 0) {
