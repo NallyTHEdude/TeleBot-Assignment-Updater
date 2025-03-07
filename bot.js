@@ -10,7 +10,7 @@ if (!BOT_TOKEN) {
   throw new Error('BOT_TOKEN environment variable is not set');
 }
 
-console.log('bot token is: ', BOT_TOKEN)
+console.log('bot token is: ', BOT_TOKEN);
 const bot = new Telegraf(BOT_TOKEN);
 
 // Loading credentials from user-details.json
@@ -42,7 +42,6 @@ bot.command('login', (ctx) => {
   userData.password = password;
   userData.chatId = ctx.chat.id;
 
-  // Save back to user-details.json
   try {
     fs.writeFileSync(credentialsPath, JSON.stringify(userData, null, 2), 'utf-8');
     console.log('Credentials saved to user-details.json');
@@ -69,10 +68,12 @@ bot.command('assignments', async (ctx) => {
     const groupedAssignments = formatAssignments(assignments);
     await sendAssignments(ctx.chat.id, groupedAssignments);
   } catch (error) {
-    if (error.message.includes('Timeout') || error.message.includes('net::ERR_CONNECTION')) {
+    if (error.message.includes('InvalidCredentials')) {
+      await ctx.reply('Credentials are wrong, please try again with correct username and password using /login.');
+    } else if (error.message.includes('Timeout') || error.message.includes('net::ERR_CONNECTION')) {
       await ctx.reply('Network is slow, try manually:\nLMS link: https://lms.klh.edu.in/login/index.php');
     } else {
-      await ctx.reply(`Error fetching assignments. Please try again later.${error}`);
+      await ctx.reply(`Error fetching assignments. Please try again later. ${error.message}`);
     }
     console.error('Error in /assignments:', error);
   }
@@ -88,13 +89,13 @@ async function sendAssignments(chatId, assignments) {
   const month = monthNames[today.getMonth()];
   const year = today.getFullYear();
   const todayDate = `${year}|${month}|${day}`;
-  
+
   function escapeMarkdown(text) {
-    return text.replace(/([*_`])/g, '\\$1'); // Only escape *, _, `
+    return text.replace(/([*_`])/g, '\\$1');
   }
 
   if (Object.keys(assignments).length === 0) {
-    await bot.telegram.sendMessage(chatId, 'Congrats🎊🎊🎉 , you don\'t have any assignments left, let\'s gooooo!!!!!', { parse_mode: 'Markdown' });
+    await bot.telegram.sendMessage(chatId, 'Congrats🎊🎊🎉 , you don\'t have any assignments left, let\'s gooooo!!!!!', { parse_mode: 'MarkdownV2' });
     return;
   }
 
@@ -104,17 +105,19 @@ async function sendAssignments(chatId, assignments) {
     assignmentsList.forEach((assignment, index) => {
       const assignmentBlock = [];
       let assignmentName = escapeMarkdown(assignment.name);
+      let course = escapeMarkdown(assignment.course);
+      let href = assignment.href;
 
       if (dueDate === todayDate) {
         assignmentBlock.push('⚠️');
-        assignmentBlock.push(`*${`Course ${index + 1}: ${assignment.course}`}*`);
-        assignmentBlock.push(`*${`Assignment${index + 1}: ${assignmentName}`}*`);
-        assignmentBlock.push(`*${`Link ${index + 1}: ${assignment.href}`}*`);
+        assignmentBlock.push(`*${course}*`);
+        assignmentBlock.push(`*Assignment${index + 1}: ${assignmentName}*`);
+        assignmentBlock.push(`*Link ${index + 1}: ${href}*`);
         assignmentBlock.push('⚠️');
       } else {
-        assignmentBlock.push(`Course ${index + 1}: ${assignment.course}`);
+        assignmentBlock.push(`${course}`);
         assignmentBlock.push(`Assignment${index + 1}: ${assignmentName}`);
-        assignmentBlock.push(`Link ${index + 1}: ${assignment.href}`);
+        assignmentBlock.push(`Link ${index + 1}: ${href}`);
       }
 
       const tabbedBlock = assignmentBlock.map(line => `        ${line}`);
